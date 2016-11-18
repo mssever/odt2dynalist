@@ -7,3 +7,7 @@ __pycache__
 *.fodt
 *.html
 *.odt
+
+# Output directories
+txt
+html
