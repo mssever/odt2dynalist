@@ -1,0 +1,8 @@
+#! /bin/bash
+
+BASE="$(basename "$1" .odt)"
+soffice --invisible --convert-to txt --outdir txt "$1"
+./sermons_to_dynalist.py --infile=txt/"$BASE".txt --type=text --outfile=txt/"$BASE".txt --force
+xsel -ib < txt/"$BASE".txt
+echo 'File converted and copied to the clipboard.'
+rm txt/"$BASE".txt
