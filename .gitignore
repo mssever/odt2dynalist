@@ -1,2 +1,9 @@
 *~
 *.bak
+__pycache__
+
+# test input files
+*.txt
+*.fodt
+*.html
+*.odt
