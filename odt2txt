@@ -1,5 +1,10 @@
 #! /bin/bash
 
+if [[ -z "$1" ]]; then
+    echo "Must specify a filename"
+    exit 1
+fi
+
 BASE="$(basename "$1" .odt)"
 soffice --invisible --convert-to txt --outdir txt "$1"
 ./sermons_to_dynalist.py --infile=txt/"$BASE".txt --type=text --outfile=txt/"$BASE".txt --force
