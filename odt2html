@@ -5,6 +5,12 @@ if [[ -z "$1" ]]; then
     exit 1
 fi
 
+ps -ef | grep [s]office >/dev/null 2>/dev/null
+if [[ $? -eq 0 ]]; then
+    echo "This script cannot be run while LibreOffice is running."
+    exit 2
+fi
+
 CONFIG=tidy_options.conf
 BASE="$(basename "$1" .odt)"
 soffice --invisible --convert-to htm:HTML --outdir html "$1"

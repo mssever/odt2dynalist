@@ -9,12 +9,16 @@ import sys
 
 from bs4 import BeautifulSoup
 
+html_types = set(('I','A','1','i','a'))
+
 def list_symbols() -> list:
+    '''These symbols are used when converting from plain text, not HTML.'''
     symbols = [['I','II','III','IV','V','VI','VII','VIII','IX','X']]
-    symbols.append(list(string.ascii_uppercase))
-    symbols.append([str(i) for i in range(1, 21)])
-    symbols.append(list(string.ascii_lowercase))
-    symbols.append(['i','ii','iii','iv','vi','vii','viii','ix','x'])
+    symbols.append(list(string.ascii_uppercase))   # A, B, C, ..., Z
+    symbols.append([str(i) for i in range(1, 21)]) # 1, 2, 3, ..., 20
+    symbols.append(list(string.ascii_lowercase))   # a, b, c, ..., z
+    symbols.append(['i','ii','iii','iv','v','vi','vii','viii','ix','x'])
+    symbols.append(['α','β','γ','δ','ε'])
     return symbols
 
 def format_item(text: str, depth: int) -> str:
@@ -44,21 +48,85 @@ def format_line(line, depth) -> str:
         o.append(format_item(l, depth))
     return '\n'.join(o)
 
-def format_list(soup, level=None, output=None) -> (list, int):
-    if output is None:
-        output = []
-    if level is None:
-        soup = format_list(soup.find('ol'), 0)
-        level = 0
-    for child in soup.contents:
-        if child == '\n':
+#def format_list(soup, level=None, output=None) -> (list, int):
+#    if output is None:
+#        output = []
+#    if level is None:
+#        soup = format_list(soup.find('ol'), 0)
+#        level = 0
+#    for child in soup.contents:
+#        if child == '\n':
+#            continue
+#        if child.name == 'p':
+#            output.append(format_line(child.contents, level))
+#        elif child.name == 'ol':
+#            output.append(format_list(child, level+1, output))
+#    if level == 0:
+#        return output
+
+def format_html(soup):
+    output = []
+    level = -1
+
+    def iterate_children(children, level):
+        level += 1
+        for child in children:
+            if child.name == 'p':
+                output.append({'level': level, 'item': child})
+            elif child.name == 'div' and child.attrs.get('type') in html_types:
+                level += 1
+                iterate_children(child, level)
+            elif child.name == 'div' and child.attrs.get('type') not in html_types:
+                iterate_children(child, level)
+
+    def parse_items(item):
+        
+        def fix_str(st):
+            st = st.replace('\n', ' ')
+            return re.sub(r'\W+', ' ', st)
+
+        item_level = item['level']
+        item = item['item']
+        accumulator = ['\t' * item_level]
+        footnotes = []
+        if hasattr(item, 'contents'):
+            for i in item.contents:
+                
+                if hasattr(i, 'select') and i.select('a') and 'footnote' in i.a.get('href'):
+                    href = i.a['href']
+                    for parent in i.parents:
+                        if parent.parent is None:
+                            footnote = parent.select(href)[0].next_siblings
+                            break
+                    footnotes.append(parse_items({'level': item_level, 'item': str(footnote)}))
+                    sys.stderr.write(repr(footnotes[-1]) + '\n')
+                if isinstance(i, str):
+                    accumulator.append(fix_str(i))
+                elif i.name == 'i' and len(i.contents) == 1:
+                    accumulator.append('__' + fix_str(i.contents[0]) + '__')
+                elif i.name == 'b' and len(i.contents) == 1:
+                    accumulator.append('**' + fix_str(i.contents[0]) + '**')
+                elif (i.name == 'span' or i.name=='a') and i.strings is not None: # and len(i.contents) == 1:
+                    accumulator.append(fix_str(''.join(list(i.strings))))
+                else:
+                    print(i)
+                    exit("ERROR: I don't know what to do with this.")
+        else:
+            accumulator.append(item)
+        o = [''.join(accumulator)]
+        for f in footnotes:
+            o.append('\n' + '\t' * item_level + f)
+        return ''.join(o)
+    
+    for outer_list in soup.contents:
+        if outer_list.name != 'div' or outer_list.attrs.get('type') not in html_types:
             continue
-        if child.name == 'p':
-            output.append(format_line(child.contents, level))
-        elif child.name == 'ol':
-            output.append(format_list(child, level+1, output))
-    if level == 0:
-        return output
+        #print(child)
+        iterate_children(outer_list, level)
+        break
+    for i in range(len(output)):
+        output[i] = parse_items(output[i])
+    return output
 
 def parse_input_line(line: str, symbols: list) -> (str, int):
     depth = 0
@@ -82,7 +150,7 @@ def parse_args() -> argparse.Namespace:
     infile = 'File to read for input. Default: stdin'
     outfile = 'File to write for output. Default: stdout'
     force = 'Overwrite the output file if it already exists'
-    type_ = 'The type of the input file. Default: text. Other options: flat.'
+    type_ = 'The type of the input file. Default: text. Other options: html.'
     add = parser.add_argument
     add('-i', '--infile', metavar='FILE', default=None, help=infile)
     add('-o', '--outfile', metavar='FILE', default=None, help=outfile)
@@ -95,7 +163,7 @@ def main():
     args = parse_args()
     if args.infile:
         if not os.path.isfile(args.infile):
-            exit('ERROR: Input file doesn\'t exist')
+            exit('ERROR: Input file doesn\'t exist: {}'.format(args.infile))
         with open(args.infile) as f:
             infile = f.read()
     else:
@@ -112,13 +180,15 @@ def main():
     if args.type == 'text':
         symbols = list_symbols()
         output = [format_text_line(i.strip(), symbols) for i in infile.split('\n') if len(i.strip()) > 0]
-    elif args.type == 'flat':
+    elif args.type == 'html':
+        sys.stderr.write("WARNING!\n\tHTML mode is currently buggy and the results are almost certainly wrong.\n\tIf you're using this mode to fix the bugs, great.\n\tBut, if you're justlooking for results, use --type=text.\n")
         soup = BeautifulSoup(infile, 'html.parser')
-        list_ = format_list(soup)
-        symbols = list_symbols()
-        for line in infile:
-            text, depth = parse_input_line(line, symbols)
-            output.append(format_item(text, depth))
+        output = format_html(soup)
+        #list_ = format_list(soup)
+        #symbols = list_symbols()
+        #for line in infile:
+        #    text, depth = parse_input_line(line, symbols)
+        #    output.append(format_item(text, depth))
     else:
         exit("ERROR: Invalid input file type")
     
