@@ -181,7 +181,7 @@ def main():
         symbols = list_symbols()
         output = [format_text_line(i.strip(), symbols) for i in infile.split('\n') if len(i.strip()) > 0]
     elif args.type == 'html':
-        sys.stderr.write("WARNING!\n\tHTML mode is currently buggy and the results are almost certainly wrong.\n\tIf you're using this mode to fix the bugs, great.\n\tBut, if you're justlooking for results, use --type=text.\n")
+        sys.stderr.write("WARNING!\n\tHTML mode is currently buggy and the results are almost certainly wrong.\n\tIf you're using this mode to fix the bugs, great.\n\tBut, if you're just looking for results, use --type=text.\n")
         soup = BeautifulSoup(infile, 'html.parser')
         output = format_html(soup)
         #list_ = format_list(soup)
