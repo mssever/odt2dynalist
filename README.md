@@ -3,6 +3,8 @@
 ## Introduction
 This project is a set of scripts I developed to convert a bunch of LibreOffice ODT files containing speaking notes to a format suitable for pasting into [Dynalist](https://dynalist.io). I'm releasing them in case they can help someone else. However, _some assembly is required_. There are many ways to format lists in LibreOffice/OpenOffice, and I made no attempt to account for any of them except for the one I use.
 
+Because of the Some Assembly Required nature of these scripts, you should have at least basic familiarity with both Python and Bash.
+
 You're welcome to fork it and modify it to suit your needs. If you modify it in a way that doesn't break existing functionality, feel free to send me a pull request. If it works without modification, count yourself lucky.
 
 ## Prerequisites
