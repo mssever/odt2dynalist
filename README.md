@@ -29,7 +29,32 @@ To take full advantage of the scripts, make sure you meet these requirements in 
 ## Configuration
 Read through the file `sermons_to_python.py` and make any changes necessary to ensure compatibility with your source files. I can't give you specific instructions here, except to note that text mode is most likely the easiest to make work if your source files are compatible. See the comments in the script file for details. Text mode, however, can't convert any formatting or footnotes.
 
+### HTML mode
+
 If you want to preserve formatting, you have to use HTML mode. I hope that HTML mode will work without configuration, but I make no promises. In particular, it only preserves bold, italic, and footnotes. If you want to preserve any other formatting, you'll need to modify the script. Pull requests that preserve additional formatting are welcome.
+
+### Text mode
+
+If you want to use text mode, note that by default the supported outline format is as follows. If your files follow a different sequence, you'll have to adjust the script. If your files are inconsistent in style, then text mode will have problems.
+
+    I.  Level one
+    II. More level one
+        A.  Level two
+        B.  More level two
+            1.  Level three
+            2.  More level three
+                a.  Level four
+                b.  More level four
+                    i.  Level five
+                    ii. More level five
+                        α.  Level six
+                        β.  More level six
+                        γ.  Still more level six
+                    iii. Still more level five
+                c.  Still more level four
+            3.  Still more level three
+        C.  Still more level two
+    III.  Still more level one
 
 ## Usage
 Once everything is configured properly, run either `odt2txt` or `odt2html`. `odt2html` preserves some formatting, so it's preferred. However, depending on how your sources files are structured, you may need to fall back to `odt2txt`.
