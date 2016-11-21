@@ -124,7 +124,7 @@ def format_html(soup):
             item = item.replace('</i>', '__')
             item = item.replace('<b>', '**')
             item = item.replace('</b>', '**')
-            item = re.sub(r'<[/]?[a-z0-9 "_=-]{2,100}>', '', item)
+            item = re.sub(r'<[^>]{2,100}>', '', item)
             accumulator.append(item)
         o = [''.join(accumulator)]
         for f in footnotes:
