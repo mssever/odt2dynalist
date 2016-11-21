@@ -16,6 +16,11 @@ BASE="$(basename "$1" .odt)"
 soffice --invisible --convert-to htm:HTML --outdir html "$1"
 tidy -q -config $CONFIG -f "html/$BASE.err" -i "html/$BASE.htm" | sed 's/ class="c[0-9]*"//g' > "html/$BASE.html"
 ./sermons_to_dynalist.py --infile="html/$BASE.html" --type=html --outfile="html/$BASE.html.txt" --force
-xsel -ib < html/"$BASE".html.txt
-echo 'File converted and copied to the clipboard.'
-rm "html/$BASE.html" "html/$BASE.htm" "html/$BASE.html.txt"
+if [[ $? -eq 0 ]]; then
+    xsel -ib < html/"$BASE".html.txt
+    echo 'File converted and copied to the clipboard.'
+    #rm "html/$BASE.html" "html/$BASE.htm" "html/$BASE.html.txt"
+else
+    echo 'sermons_to_dynalist.py exited with an error status.'
+    exit 1
+fi

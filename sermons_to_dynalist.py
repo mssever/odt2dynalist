@@ -84,6 +84,18 @@ def format_html(soup):
             st = st.replace('\n', ' ')
             return re.sub(r'\s+', ' ', st)
 
+        def get_footnote(a):
+            href = a['href']
+            for parent in a.parents:
+                if parent.parent is None:
+                    footnote_arr = [i for i in parent.select(href)[0].next_siblings]
+                    footnote = []
+                    for fn in footnote_arr:
+                        footnote.append(str(fn))
+                    footnote = ''.join(footnote)
+                    break
+            return parse_items({'level': 0, 'item': '#fixme #footnote ' + str(footnote)})
+
         item_level = item['level']
         item = item['item']
         accumulator = ['\t' * item_level]
@@ -91,16 +103,11 @@ def format_html(soup):
         if hasattr(item, 'contents'):
             for i in item.contents:
                 if hasattr(i, 'select') and i.select('a') and 'footnote' in i.a.get('href'):
-                    href = i.a['href']
-                    for parent in i.parents:
-                        if parent.parent is None:
-                            footnote_arr = [i for i in parent.select(href)[0].next_siblings]
-                            footnote = []
-                            for fn in footnote_arr:
-                                footnote.append(str(fn))
-                            footnote = ''.join(footnote)
-                            break
-                    footnotes.append(parse_items({'level': 0, 'item': '#fixme #footnote ' + str(footnote)}))
+                    footnotes.append(get_footnote(i.a))
+                # Search also for footnotes in the next sibling. If it's several
+                # siblings later, it won't be found, currently.
+                elif hasattr(i, 'nextSibling') and hasattr(i.nextSibling, 'name') and i.nextSibling.name == 'a' and 'footnote' in i.nextSibling.get('href'):
+                    footnotes.append(get_footnote(i.nextSibling))
                 if isinstance(i, str):
                     accumulator.append(fix_str(i))
                 elif i.name == 'i' and len(i.contents) == 1:
@@ -117,7 +124,7 @@ def format_html(soup):
             item = item.replace('</i>', '__')
             item = item.replace('<b>', '**')
             item = item.replace('</b>', '**')
-            item = re.sub(r'<[/]?[a-z0-9]{2,100}>', '', item)
+            item = re.sub(r'<[/]?[a-z0-9 "_=-]{2,100}>', '', item)
             accumulator.append(item)
         o = [''.join(accumulator)]
         for f in footnotes:
