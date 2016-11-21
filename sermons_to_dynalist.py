@@ -15,7 +15,11 @@ import re
 import string
 import sys
 
-from bs4 import BeautifulSoup
+html_mode_available = True
+try:
+    from bs4 import BeautifulSoup
+except ImportError:
+    html_mode_available = False
 
 # List types that may be set in HTML by LibreOffice. The type may also be unspecified.
 html_types = set(('I','A','1','i','a', 'disc', 'circle', 'square'))
@@ -67,7 +71,7 @@ def format_html(soup):
         for child in children:
             if child.name == 'p':
                 output.append({'level': level, 'item': child})
-            elif child.name == 'div': # and child.attrs.get('type') in html_types:
+            elif child.name == 'div':
                 iterate_children(child, level)
             #elif child.name == 'div' and child.attrs.get('type') not in html_types:
             #    iterate_children(child, level-1)
@@ -182,8 +186,11 @@ def main():
         symbols = list_symbols()
         output = [format_text_line(i.strip(), symbols) for i in infile.split('\n') if len(i.strip()) > 0]
     elif args.type == 'html':
-        soup = BeautifulSoup(infile, 'html.parser')
-        output = format_html(soup)
+        if html_mode_available:
+            soup = BeautifulSoup(infile, 'html.parser')
+            output = format_html(soup)
+        else:
+            exit("ERROR: Please install Beautiful Soup 4 (Ubuntu package python-bs4) to use HTML mode.")
     else:
         exit("ERROR: Invalid input file type")
     
