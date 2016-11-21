@@ -1,16 +1,33 @@
 #!/usr/bin/env python3
+#
+################################################################################
+# Important note:
+# Because of the highly individual nature of the ODT files to be processed, each
+# user will have to adjust this script according to their needs. It will fail
+# out of the box unless you happen to format your source files the same way I
+# do. Areas that I think you will most likely have to modify are commented with
+# three leading hashes, like so: ###.
+################################################################################
 
 import argparse
 import os
 import re
 import string
 import sys
-#from xml.dom.minidom import parseString as xml_parse
 
 from bs4 import BeautifulSoup
 
-html_types = set(('I','A','1','i','a'))
+# List types that may be set in HTML by LibreOffice. The type may also be unspecified.
+html_types = set(('I','A','1','i','a', 'disc', 'circle', 'square'))
 
+### These lists represent the sequence of outline levels in your original
+### document, as they get converted to plain text by LibreOffice. You'll need to
+### adjust it to match your usage. Make sure the order is correct (outermost
+### first) and the lists are long enough to cover every possible list in your
+### original. Note that if you have any levels which repeat symbols, invoking
+### this script with --type=text will produce incorrect output.
+###
+### This function is only in use with --type=text in effect.
 def list_symbols() -> list:
     '''These symbols are used when converting from plain text, not HTML.'''
     symbols = [['I','II','III','IV','V','VI','VII','VIII','IX','X']]
@@ -22,10 +39,12 @@ def list_symbols() -> list:
     return symbols
 
 def format_item(text: str, depth: int) -> str:
+    '''Add tabs to the beginning of each item.'''
     assert isinstance(depth, int) and depth >= 0
     return '\t' * depth + text
 
 def format_text_line(line: str, symbols: list) -> str:
+    '''Process a single item, when --type == "text"'''
     depth = 0
     parts = line.partition('.')
     if parts[1] == '.':
@@ -36,54 +55,30 @@ def format_text_line(line: str, symbols: list) -> str:
                 depth += 1
     return format_item(parts[2].strip(), depth)
 
-def format_line(line, depth) -> str:
-    o = []
-    if not isinstance(line, list):
-        line = [line]
-    for l in line:
-        l = l.extract()
-        assert l is not None
-        l = l.replace('\n', ' ').replace('\t', ' ')
-        l = re.sub(r'\W+', ' ', l)
-        o.append(format_item(l, depth))
-    return '\n'.join(o)
-
-#def format_list(soup, level=None, output=None) -> (list, int):
-#    if output is None:
-#        output = []
-#    if level is None:
-#        soup = format_list(soup.find('ol'), 0)
-#        level = 0
-#    for child in soup.contents:
-#        if child == '\n':
-#            continue
-#        if child.name == 'p':
-#            output.append(format_line(child.contents, level))
-#        elif child.name == 'ol':
-#            output.append(format_list(child, level+1, output))
-#    if level == 0:
-#        return output
-
+# Only called when --type == 'html'
 def format_html(soup):
+    '''Formats the converted-to-html source for Dynalist'''
     output = []
     level = -1
 
     def iterate_children(children, level):
+        '''Iterates over HTML list tags and figures out what is what.'''
         level += 1
         for child in children:
             if child.name == 'p':
                 output.append({'level': level, 'item': child})
-            elif child.name == 'div' and child.attrs.get('type') in html_types:
-                level += 1
+            elif child.name == 'div': # and child.attrs.get('type') in html_types:
                 iterate_children(child, level)
-            elif child.name == 'div' and child.attrs.get('type') not in html_types:
-                iterate_children(child, level)
+            #elif child.name == 'div' and child.attrs.get('type') not in html_types:
+            #    iterate_children(child, level-1)
 
     def parse_items(item):
+        '''Parses each item and converts it to a string formatted for Dynalist'''
         
         def fix_str(st):
+            '''Removes extraneous newlines and whitespace'''
             st = st.replace('\n', ' ')
-            return re.sub(r'\W+', ' ', st)
+            return re.sub(r'\s+', ' ', st)
 
         item_level = item['level']
         item = item['item']
@@ -91,27 +86,34 @@ def format_html(soup):
         footnotes = []
         if hasattr(item, 'contents'):
             for i in item.contents:
-                
                 if hasattr(i, 'select') and i.select('a') and 'footnote' in i.a.get('href'):
                     href = i.a['href']
                     for parent in i.parents:
                         if parent.parent is None:
-                            footnote = parent.select(href)[0].next_siblings
+                            footnote_arr = [i for i in parent.select(href)[0].next_siblings]
+                            footnote = []
+                            for fn in footnote_arr:
+                                footnote.append(str(fn))
+                            footnote = ''.join(footnote)
                             break
-                    footnotes.append(parse_items({'level': item_level, 'item': str(footnote)}))
-                    sys.stderr.write(repr(footnotes[-1]) + '\n')
+                    footnotes.append(parse_items({'level': 0, 'item': '#fixme #footnote ' + str(footnote)}))
                 if isinstance(i, str):
                     accumulator.append(fix_str(i))
                 elif i.name == 'i' and len(i.contents) == 1:
                     accumulator.append('__' + fix_str(i.contents[0]) + '__')
                 elif i.name == 'b' and len(i.contents) == 1:
                     accumulator.append('**' + fix_str(i.contents[0]) + '**')
-                elif (i.name == 'span' or i.name=='a') and i.strings is not None: # and len(i.contents) == 1:
+                elif (i.name == 'span' or i.name=='a') and i.strings is not None:
                     accumulator.append(fix_str(''.join(list(i.strings))))
                 else:
                     print(i)
                     exit("ERROR: I don't know what to do with this.")
         else:
+            item = item.replace('<i>', '__')
+            item = item.replace('</i>', '__')
+            item = item.replace('<b>', '**')
+            item = item.replace('</b>', '**')
+            item = re.sub(r'<[/]?[a-z0-9]{2,100}>', '', item)
             accumulator.append(item)
         o = [''.join(accumulator)]
         for f in footnotes:
@@ -121,29 +123,29 @@ def format_html(soup):
     for outer_list in soup.contents:
         if outer_list.name != 'div' or outer_list.attrs.get('type') not in html_types:
             continue
-        #print(child)
         iterate_children(outer_list, level)
         break
     for i in range(len(output)):
-        output[i] = parse_items(output[i])
+        tmp = parse_items(output[i])
+        
+        # The below is an ugly hack to get rid of extra spaces at the beginning
+        # of a line. For some reason, re.sub was just corrupting things.
+        if re.match(r'^([\t]*)[ ]+(\S+)', tmp):
+            start = end = 0
+            for j in range(len(tmp)):
+                if start == 0 and tmp[j] != '\t':
+                    start = j
+                elif start > 0 and tmp[j] != ' ':
+                    end = j
+                    break
+            output[i] = str(tmp[:start] + tmp[end:])
+        else:
+            output[i] = tmp
+        
     return output
 
-def parse_input_line(line: str, symbols: list) -> (str, int):
-    depth = 0
-    parts = line.partition('.')
-    if parts[1]: # If the separator was found and we have a list item
-        for s in symbols:
-            if parts[0] in s:
-                break
-            else:
-                depth += 1
-    return (parts[2].strip(), depth)
-
-def parse_dom_for_bullets(dom):
-    list_ = dom.getElementsByTagName('text:list')
-    #output = 
-
 def parse_args() -> argparse.Namespace:
+    '''Handles command-line arguments'''
     parser = argparse.ArgumentParser(description='''Converts LibreOffice sermon outlines to a format suitable for pasting into Dynalist.
 
     Prior to running this script, the sermon should already be exported as the specified type.''')
@@ -156,7 +158,6 @@ def parse_args() -> argparse.Namespace:
     add('-o', '--outfile', metavar='FILE', default=None, help=outfile)
     add('-f', '--force', action='store_true', default=False, help=force)
     add('-t', '--type', default='text', help=type_)
-    
     return parser.parse_args()
 
 def main():
@@ -181,14 +182,8 @@ def main():
         symbols = list_symbols()
         output = [format_text_line(i.strip(), symbols) for i in infile.split('\n') if len(i.strip()) > 0]
     elif args.type == 'html':
-        sys.stderr.write("WARNING!\n\tHTML mode is currently buggy and the results are almost certainly wrong.\n\tIf you're using this mode to fix the bugs, great.\n\tBut, if you're just looking for results, use --type=text.\n")
         soup = BeautifulSoup(infile, 'html.parser')
         output = format_html(soup)
-        #list_ = format_list(soup)
-        #symbols = list_symbols()
-        #for line in infile:
-        #    text, depth = parse_input_line(line, symbols)
-        #    output.append(format_item(text, depth))
     else:
         exit("ERROR: Invalid input file type")
     
