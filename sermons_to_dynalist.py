@@ -106,7 +106,7 @@ def format_html(soup):
                     footnotes.append(get_footnote(i.a))
                 # Search also for footnotes in the next sibling. If it's several
                 # siblings later, it won't be found, currently.
-                elif hasattr(i, 'nextSibling') and hasattr(i.nextSibling, 'name') and i.nextSibling.name == 'a' and 'footnote' in i.nextSibling.get('href'):
+                elif hasattr(i, 'nextSibling') and hasattr(i.nextSibling, 'name') and i.nextSibling.name == 'a' and i.nextSibling.get('href') and 'footnote' in i.nextSibling.get('href'):
                     footnotes.append(get_footnote(i.nextSibling))
                 if isinstance(i, str):
                     accumulator.append(fix_str(i))
