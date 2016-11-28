@@ -114,7 +114,7 @@ def format_html(soup):
                     accumulator.append('__' + fix_str(i.contents[0]) + '__')
                 elif i.name == 'b' and len(i.contents) == 1:
                     accumulator.append('**' + fix_str(i.contents[0]) + '**')
-                elif (i.name == 'span' or i.name=='a') and i.strings is not None:
+                elif (i.name == 'span' or i.name=='a' or i.name=='sup') and i.strings is not None:
                     accumulator.append(fix_str(''.join(list(i.strings))))
                 else:
                     print(i)

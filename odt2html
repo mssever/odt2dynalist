@@ -19,7 +19,7 @@ tidy -q -config $CONFIG -f "html/$BASE.err" -i "html/$BASE.htm" | sed 's/ class=
 if [[ $? -eq 0 ]]; then
     xsel -ib < html/"$BASE".html.txt
     echo 'File converted and copied to the clipboard.'
-    rm "html/$BASE.html" "html/$BASE.htm" "html/$BASE.html.txt"
+    rm "html/$BASE.html" "html/$BASE.htm" "html/$BASE.html.txt" "html/$BASE.err"
 else
     echo 'sermons_to_dynalist.py exited with an error status.'
     exit 1
